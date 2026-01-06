@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UberEats 獎勵計算機</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+        .reward-input {
+            height: 32px;
+            font-size: 13px;
+            text-align: center;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.375rem;
+            transition: all 0.2s;
+        }
+        .reward-input:focus {
+            outline: none;
+            border-color: #06C167;
+            box-shadow: 0 0 0 2px rgba(6, 193, 103, 0.2);
+        }
+        .milestone-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: #9ca3af;
+            width: 24px;
+            flex-shrink: 0;
+            text-align: center;
+        }
+        .milestone-input { width: 55px; }
+        .period-input { width: 52px; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        
+        .preset-checkbox {
+            width: 14px;
+            height: 14px;
+            accent-color: #06C167;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans min-h-screen pb-10 text-sm">
+
+    <div class="max-w-3xl mx-auto px-2 py-4">
+        <!-- 頁面標題 -->
+        <header class="text-center mb-4">
+            <h1 class="text-2xl font-bold text-gray-900 tracking-tight">UberEats 獎勵計算機</h1>
+        </header>
+
+        <div class="space-y-4">
+            
+            <!-- 製作者資訊欄位 -->
+            <section class="bg-white rounded-xl shadow-sm border border-gray-200 p-3 text-center">
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">製作日期</label>
+                        <input type="date" id="creator-date" class="w-full reward-input px-2 text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">地區</label>
+                        <input type="text" id="creator-region" placeholder="例: 台北" class="w-full reward-input px-2 text-xs text-left">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">製作者</label>
+                        <input type="text" id="creator-name" placeholder="姓名" class="w-full reward-input px-2 text-xs text-left">
+                    </div>
+                </div>
+            </section>
+
+            <!-- 平日趟獎 -->
+            <section class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div class="bg-[#06C167] px-3 py-1.5 text-white flex justify-between items-center">
+                    <h2 class="font-bold text-sm">平日趟獎 (週二至週四)</h2>
+                    <button onclick="exportMilestoneImage()" class="bg-white/20 hover:bg-white/30 text-[10px] px-2 py-1 rounded border border-white/50 transition-colors">
+                        輸出平日/假日圖片
+                    </button>
+                </div>
+                <!-- 平日預設勾選區 -->
+                <div class="flex items-center justify-start space-x-6 py-3 px-4 bg-gray-50 border-b border-gray-100">
+                    <label class="flex items-center space-x-2 cursor-pointer group">
+                        <input type="checkbox" class="preset-checkbox" data-group="wd" data-type="high" onclick="handlePresetClick(this)">
+                        <span class="text-xs font-bold text-gray-500 group-hover:text-[#06C167]">高標</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer group">
+                        <input type="checkbox" class="preset-checkbox" data-group="wd" data-type="top" onclick="handlePresetClick(this)">
+                        <span class="text-xs font-bold text-gray-500 group-hover:text-[#06C167]">頂標</span>
+                    </label>
+                </div>
+                <div class="p-2">
+                    <div class="grid grid-cols-2 gap-x-2 gap-y-1.5">
+                        <div class="space-y-1.5" id="wd-left"></div>
+                        <div class="space-y-1.5" id="wd-right"></div>
+                    </div>
+                    <div class="mt-3 flex justify-between bg-gray-50 p-2 rounded border border-gray-100 text-center text-xs">
+                        <div class="flex-1"><p class="text-gray-400 font-bold uppercase">總趟數</p><p class="font-bold text-base" id="wd-trips">0</p></div>
+                        <div class="flex-1 border-x border-gray-200"><p class="text-gray-400 font-bold uppercase">總金額</p><p class="font-bold text-base text-[#06C167]" id="wd-money">$0</p></div>
+                        <div class="flex-1"><p class="text-gray-400 font-bold uppercase">平均</p><p class="font-bold text-base text-blue-600" id="wd-avg">$0</p></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 假日趟獎 -->
+            <section class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden text-center">
+                <div class="bg-black px-3 py-1.5 text-white flex justify-between items-center">
+                    <h2 class="font-bold text-sm">假日趟獎 (週五至週一)</h2>
+                    <button onclick="exportMilestoneImage()" class="bg-white/20 hover:bg-white/30 text-[10px] px-2 py-1 rounded border border-white/50 transition-colors">
+                        輸出平日/假日圖片
+                    </button>
+                </div>
+                <!-- 假日預設勾選區 -->
+                <div class="flex items-center justify-start space-x-6 py-3 px-4 bg-gray-50 border-b border-gray-100">
+                    <label class="flex items-center space-x-2 cursor-pointer group">
+                        <input type="checkbox" class="preset-checkbox" data-group="we" data-type="high" onclick="handlePresetClick(this)">
+                        <span class="text-xs font-bold text-gray-500 group-hover:text-black">高標</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer group">
+                        <input type="checkbox" class="preset-checkbox" data-group="we" data-type="top" onclick="handlePresetClick(this)">
+                        <span class="text-xs font-bold text-gray-500 group-hover:text-black">頂標</span>
+                    </label>
+                </div>
+                <div class="p-2">
+                    <div class="grid grid-cols-2 gap-x-2 gap-y-1.5">
+                        <div class="space-y-1.5" id="we-left"></div>
+                        <div class="space-y-1.5" id="we-right"></div>
+                    </div>
+                    <div class="mt-3 flex justify-between bg-gray-50 p-2 rounded border border-gray-100 text-center text-xs">
+                        <div class="flex-1"><p class="text-gray-400 font-bold uppercase">總趟數</p><p class="font-bold text-base" id="we-trips">0</p></div>
+                        <div class="flex-1 border-x border-gray-200"><p class="text-gray-400 font-bold uppercase">總金額</p><p class="font-bold text-base text-[#06C167]" id="we-money">$0</p></div>
+                        <div class="flex-1"><p class="text-gray-400 font-bold uppercase">平均</p><p class="font-bold text-base text-blue-600" id="we-avg">$0</p></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 本週餐期獎勵 -->
+            <section class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden text-center">
+                <div class="bg-blue-600 px-4 py-2 text-white flex justify-between items-center">
+                    <h2 class="font-bold text-sm">本週餐期獎勵</h2>
+                    <div class="flex gap-2">
+                        <button onclick="exportPeriodText()" class="bg-white/20 hover:bg-white/30 text-[10px] px-2 py-1 rounded border border-white/50 transition-colors text-center">
+                            輸出文字
+                        </button>
+                        <button onclick="exportPeriodImage()" class="bg-white/20 hover:bg-white/30 text-[10px] px-2 py-1 rounded border border-white/50 transition-colors text-center">
+                            輸出圖片
+                        </button>
+                    </div>
+                </div>
+                <div class="p-1.5 space-y-1" id="daily-container">
+                    <!-- JS 生成 -->
+                </div>
+                <div class="m-2 p-2 bg-blue-50 rounded text-center border border-blue-100 text-center">
+                    <p class="text-[10px] text-blue-700 font-bold uppercase tracking-widest">本週餐期獎勵合計</p>
+                    <p class="text-xl font-black text-blue-800" id="period-total">$0</p>
+                </div>
+            </section>
+
+            <!-- 總額加總 -->
+            <section class="bg-[#06C167] rounded-xl shadow-lg p-5 text-white text-center">
+                <h2 class="text-xs font-bold opacity-90 mb-1 tracking-widest uppercase">本週所有獎勵加總金額</h2>
+                <p class="text-4xl md:text-5xl font-black mb-6" id="grand-total">$0</p>
+                <div class="pt-4 border-t border-white/30 flex justify-between items-center text-center gap-1 text-xs">
+                    <div class="flex-1"><span class="opacity-90 font-medium">平日獎勵</span><p id="sum-wd" class="text-xl font-black">$0</p></div>
+                    <div class="flex-1 border-x border-white/20 px-1"><span class="opacity-90 font-medium">假日獎勵</span><p id="sum-we" class="text-xl font-black">$0</p></div>
+                    <div class="flex-1"><span class="opacity-90 font-medium">餐期獎勵</span><p id="sum-pd" class="text-xl font-black">$0</p></div>
+                </div>
+            </section>
+
+            <div class="text-center pt-2">
+                <button onclick="clearAll()" class="text-gray-400 hover:text-red-500 text-[10px] font-medium transition-colors underline decoration-dotted">
+                    重置所有資料數據
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 文字輸出彈窗 -->
+    <div id="modal-export" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden text-center">
+        <div class="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+            <div class="bg-blue-600 p-4 text-white flex justify-between items-center text-center">
+                <h3 class="font-bold text-sm">獎勵結算輸出</h3>
+                <button onclick="closeModal()" class="text-white/70 hover:text-white text-xl font-bold">&times;</button>
+            </div>
+            <div class="p-4 text-center">
+                <textarea id="output-area" readonly class="w-full h-72 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none no-scrollbar leading-relaxed text-left"></textarea>
+                <div class="mt-4 flex gap-2 text-center">
+                    <button onclick="copyToClipboard()" id="copy-btn" class="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-bold transition-all active:scale-95 shadow-lg shadow-blue-100">複製到剪貼簿</button>
+                    <button onclick="closeModal()" class="flex-1 bg-gray-100 text-gray-600 py-2.5 rounded-xl font-bold">關閉</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- [圖片模板 A] 餐期獎勵圖片 (寬 550px) -->
+    <div id="export-period-image-card" class="fixed -left-[4000px] top-0 bg-white w-[550px] p-10">
+        <div class="relative text-center border-b-4 border-[#06C167] pb-16 mb-8 text-center">
+            <h2 class="text-2xl font-black text-gray-900 tracking-tighter">UberEats 本週餐期額外獎勵</h2>
+            <span id="img-period-region" class="absolute bottom-6 right-0 text-xs font-bold text-gray-400">地區: ---</span>
+        </div>
+        <table class="w-full text-left border-none">
+            <thead>
+                <tr class="text-[13px] text-black font-black uppercase tracking-widest border-b border-gray-50">
+                    <th class="py-4 px-1">星期</th>
+                    <th class="py-4 px-1 text-center">午餐獎勵</th>
+                    <th class="py-4 px-1 text-center">晚餐獎勵</th>
+                    <th class="py-4 px-1 text-right">每日合計</th>
+                </tr>
+            </thead>
+            <tbody id="img-period-body"></tbody>
+        </table>
+        <div class="mt-8 pt-8 border-t-2 border-dashed border-gray-100 text-center">
+            <p class="text-[16px] text-gray-900 font-black uppercase tracking-tight mb-8">本週餐期獎勵合計</p>
+            <p id="img-period-total" class="text-5xl font-black text-[#06C167] mt-1"></p>
+            <div class="mt-14 flex justify-between text-[11px] text-gray-400 font-bold border-t border-gray-50 pt-4 text-center">
+                <span id="meta-author">製作者: ---</span>
+                <span id="meta-date">製作日期: ---</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- [圖片模板 B] 平日/假日趟獎圖片 (寬 550px) -->
+    <div id="export-ms-image-card" class="fixed -left-[4000px] top-0 bg-white w-[550px] p-10">
+        <div class="relative text-center border-b-4 border-[#06C167] pb-16 mb-10 text-center">
+            <h2 class="text-2xl font-black text-gray-900 tracking-tighter">UberEats 平日與假日趟獎</h2>
+            <span id="img-ms-region" class="absolute bottom-6 right-0 text-xs font-bold text-gray-400">地區: ---</span>
+        </div>
+        <div class="flex">
+            <div class="flex-1 pr-8 border-r border-gray-200">
+                <h3 class="text-[16px] font-black text-[#06C167] text-center mb-8">平日明細</h3>
+                <table class="w-full text-[15px] border-none">
+                    <tbody id="img-wd-rows" class="text-gray-600"></tbody>
+                    <tfoot>
+                        <tr class="font-black text-gray-900 border-t border-gray-50">
+                            <td class="pt-8">平日合計</td>
+                            <td class="pt-8 text-right" id="img-wd-sum-t">0趟</td>
+                            <td class="pt-8 text-right text-[#06C167]" id="img-wd-sum-m">$0</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <div class="flex-1 pl-8">
+                <h3 class="text-[16px] font-black text-black text-center mb-8">假日明細</h3>
+                <table class="w-full text-[15px] border-none">
+                    <tbody id="img-we-rows" class="text-gray-600"></tbody>
+                    <tfoot>
+                        <tr class="font-black text-gray-900 border-t border-gray-50">
+                            <td class="pt-8">假日合計</td>
+                            <td class="pt-8 text-right" id="img-we-sum-t">0趟</td>
+                            <td class="pt-8 text-right text-[#06C167]" id="img-we-sum-m">$0</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+        <div class="mt-14 pt-10 border-t-4 border-double border-gray-100 text-center">
+            <p class="text-[16px] text-gray-900 font-black uppercase tracking-widest mb-10">本週平日與假日趟獎加總</p>
+            <div class="flex justify-center items-center gap-10">
+                <p id="img-ms-grand-t" class="text-4xl font-black text-gray-900"></p>
+                <p id="img-ms-grand-m" class="text-5xl font-black text-[#06C167]"></p>
+            </div>
+            <div class="mt-14 flex justify-between text-[11px] text-gray-400 font-bold border-t border-gray-50 pt-4 px-2 text-center">
+                <span id="meta-ms-author">製作者: ---</span>
+                <span id="meta-ms-date">製作日期: ---</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const uiDays = ['週一', '週二', '週三', '週四', '週五', '週六', '週日'];
+        const fullDays = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
+        const labelMap = ['', '第一標', '第二標', '第三標', '第四標', '第五標', '第六標', '第七標', '第八標'];
+
+        const presets = {
+            wd: {
+                high: [
+                    {t: 30, m: 225}, {t: 15, m: 115}, {t: 15, m: 115}, {t: 15, m: 310},
+                    {t: 15, m: 265}, {t: 10, m: 195}, {t: 10, m: 275}, {t: 0, m: 0}
+                ],
+                top: [
+                    {t: 45, m: 340}, {t: 15, m: 115}, {t: 15, m: 310}, {t: 15, m: 265},
+                    {t: 10, m: 115}, {t: 10, m: 355}, {t: 0, m: 0}, {t: 0, m: 0}
+                ]
+            },
+            we: {
+                high: [
+                    {t: 65, m: 535}, {t: 5, m: 40}, {t: 5, m: 90}, {t: 10, m: 90},
+                    {t: 15, m: 260}, {t: 20, m: 205}, {t: 20, m: 380}, {t: 20, m: 785}
+                ],
+                top: [
+                    {t: 80, m: 710}, {t: 20, m: 175}, {t: 20, m: 490}, {t: 15, m: 345},
+                    {t: 10, m: 320}, {t: 15, m: 555}, {t: 0, m: 0}, {t: 0, m: 0}
+                ]
+            }
+        };
+
+        function init() {
+            document.getElementById('creator-date').value = new Date().toISOString().split('T')[0];
+            renderMilestones('wd'); renderMilestones('we'); renderDailyPeriods();
+            setupListeners(); calculate();
+        }
+
+        function renderMilestones(prefix) {
+            const left = document.getElementById(`${prefix}-left`), right = document.getElementById(`${prefix}-right`);
+            for (let i = 1; i <= 8; i++) {
+                const html = `<div class="flex items-center bg-gray-50 px-1.5 py-1 rounded border border-gray-100"><span class="milestone-label">標${i}</span><div class="flex items-center space-x-1 ml-auto"><div class="relative"><input type="number" data-group="${prefix}" data-idx="${i}" data-f="t" placeholder="0" class="reward-input milestone-input pl-1 pr-4"><span class="absolute right-1 top-1/2 -translate-y-1/2 text-[9px] text-gray-400 pointer-events-none">趟</span></div><div class="relative"><input type="number" data-group="${prefix}" data-idx="${i}" data-f="m" placeholder="0" class="reward-input milestone-input pl-1 pr-4"><span class="absolute right-1 top-1/2 -translate-y-1/2 text-[9px] text-gray-400 pointer-events-none">元</span></div></div></div>`;
+                if (i <= 4) left.innerHTML += html; else right.innerHTML += html;
+            }
+        }
+
+        function renderDailyPeriods() {
+            const container = document.getElementById('daily-container');
+            uiDays.forEach((day, dIdx) => {
+                container.innerHTML += `<div class="bg-gray-50/50 px-2 py-1.5 rounded-lg border border-gray-100 flex items-center text-[11px] justify-between text-center"><span class="font-bold text-gray-700 w-8 shrink-0">${day}</span><span class="font-bold text-blue-600 shrink-0 italic w-14 ml-1">合計:$<span id="day-sum-${dIdx}">0</span></span><div class="flex flex-1 items-center justify-end space-x-1"><div class="flex items-center space-x-0.5"><span class="text-gray-400 text-[9px] font-bold">午</span><div class="relative"><input type="number" data-day="${dIdx}" data-p="0" data-f="t" placeholder="0" class="reward-input period-input pl-1 pr-4"><span class="absolute right-1 top-1/2 -translate-y-1/2 text-[8px] text-gray-400 pointer-events-none">趟</span></div><div class="relative"><input type="number" data-day="${dIdx}" data-p="0" data-f="r" placeholder="0" class="reward-input period-input pl-1 pr-4"><span class="absolute right-1 top-1/2 -translate-y-1/2 text-[8px] text-gray-400 pointer-events-none">元</span></div></div><div class="w-[1px] h-3 bg-gray-200"></div><div class="flex items-center space-x-0.5"><span class="text-gray-400 text-[9px] font-bold">晚</span><div class="relative"><input type="number" data-day="${dIdx}" data-p="1" data-f="t" placeholder="0" class="reward-input period-input pl-1 pr-4"><span class="absolute right-1 top-1/2 -translate-y-1/2 text-[8px] text-gray-400 pointer-events-none">趟</span></div><div class="relative"><input type="number" data-day="${dIdx}" data-p="1" data-f="r" placeholder="0" class="reward-input period-input pl-1 pr-4"><span class="absolute right-1 top-1/2 -translate-y-1/2 text-[8px] text-gray-400 pointer-events-none">元</span></div></div></div></div>`;
+            });
+        }
+
+        function setupListeners() {
+            document.querySelectorAll('input').forEach(input => {
+                if (input.type === 'number') {
+                    input.addEventListener('input', () => {
+                        const group = input.getAttribute('data-group');
+                        if (group) document.querySelectorAll(`.preset-checkbox[data-group="${group}"]`).forEach(cb => cb.checked = false);
+                        calculate();
+                    });
+                }
+            });
+        }
+
+        function handlePresetClick(cb) {
+            const group = cb.getAttribute('data-group'), type = cb.getAttribute('data-type');
+            document.querySelectorAll(`.preset-checkbox[data-group="${group}"]`).forEach(item => { if (item !== cb) item.checked = false; });
+            if (cb.checked && presets[group] && presets[group][type]) {
+                const data = presets[group][type];
+                data.forEach((val, i) => {
+                    const idx = i + 1;
+                    const inputT = document.querySelector(`input[data-group="${group}"][data-idx="${idx}"][data-f="t"]`), inputM = document.querySelector(`input[data-group="${group}"][data-idx="${idx}"][data-f="m"]`);
+                    if (inputT) inputT.value = val.t === 0 ? '' : val.t;
+                    if (inputM) inputM.value = val.m === 0 ? '' : val.m;
+                });
+            }
+            calculate();
+        }
+
+        function calculate() {
+            const calcG = (prefix) => {
+                let t = 0, m = 0;
+                document.querySelectorAll(`input[data-group="${prefix}"][data-f="t"]`).forEach(i => t += Number(i.value) || 0);
+                document.querySelectorAll(`input[data-group="${prefix}"][data-f="m"]`).forEach(i => m += Number(i.value) || 0);
+                return { t, m };
+            };
+            const wd = calcG('wd'), we = calcG('we');
+            document.getElementById('wd-trips').innerText = wd.t; document.getElementById('wd-money').innerText = '$' + wd.m.toLocaleString();
+            document.getElementById('wd-avg').innerText = wd.t > 0 ? '$' + (wd.m / wd.t).toFixed(1) : '$0';
+            document.getElementById('we-trips').innerText = we.t; document.getElementById('we-money').innerText = '$' + we.m.toLocaleString();
+            document.getElementById('we-avg').innerText = we.t > 0 ? '$' + (we.m / we.t).toFixed(1) : '$0';
+
+            let tPd = 0;
+            for (let d = 0; d < 7; d++) {
+                let s = 0;
+                for (let p = 0; p < 2; p++) {
+                    s += (Number(document.querySelector(`input[data-day="${d}"][data-p="${p}"][data-f="t"]`).value) || 0) * (Number(document.querySelector(`input[data-day="${d}"][data-p="${p}"][data-f="r"]`).value) || 0);
+                }
+                document.getElementById(`day-sum-${d}`).innerText = s.toLocaleString(); tPd += s;
+            }
+            document.getElementById('period-total').innerText = '$' + tPd.toLocaleString();
+            const gt = wd.m + we.m + tPd;
+            document.getElementById('grand-total').innerText = '$' + gt.toLocaleString();
+            document.getElementById('sum-wd').innerText = '$' + wd.m.toLocaleString();
+            document.getElementById('sum-we').innerText = '$' + we.m.toLocaleString();
+            document.getElementById('sum-pd').innerText = '$' + tPd.toLocaleString();
+        }
+
+        function getInfo() {
+            return {
+                name: document.getElementById('creator-name').value || "未填寫",
+                date: document.getElementById('creator-date').value || new Date().toISOString().split('T')[0],
+                region: document.getElementById('creator-region').value || "未填寫"
+            };
+        }
+
+        async function exportPeriodImage() {
+            const body = document.getElementById('img-period-body'); body.innerHTML = '';
+            let total = 0, maxV = -1;
+            for (let i = 0; i < 7; i++) {
+                const s = (Number(document.querySelector(`input[data-day="${i}"][data-p="0"][data-f="t"]`).value) * Number(document.querySelector(`input[data-day="${i}"][data-p="0"][data-f="r"]`).value)) + 
+                          (Number(document.querySelector(`input[data-day="${i}"][data-p="1"][data-f="t"]`).value) * Number(document.querySelector(`input[data-day="${i}"][data-p="1"][data-f="r"]`).value));
+                if (s > maxV) maxV = s;
+            }
+            fullDays.forEach((day, i) => {
+                const t0 = Number(document.querySelector(`input[data-day="${i}"][data-p="0"][data-f="t"]`).value) || 0, r0 = Number(document.querySelector(`input[data-day="${i}"][data-p="0"][data-f="r"]`).value) || 0;
+                const t1 = Number(document.querySelector(`input[data-day="${i}"][data-p="1"][data-f="t"]`).value) || 0, r1 = Number(document.querySelector(`input[data-day="${i}"][data-p="1"][data-f="r"]`).value) || 0;
+                const sum = (t0 * r0) + (t1 * r1); total += sum;
+                const isMax = (sum === maxV && maxV > 0);
+                body.innerHTML += `<tr><td class="py-4 px-1 font-black text-gray-900">${day}</td><td class="py-4 px-1 text-center text-gray-400 text-[13px]">${t0}趟x${r0}元=${t0*r0}元</td><td class="py-4 px-1 text-center text-gray-400 text-[13px]">${t1}趟x${r1}元=${t1*r1}元</td><td class="py-4 px-1 text-right font-black ${isMax ? 'text-[#06C167]' : 'text-gray-900'}">$${sum}</td></tr>`;
+            });
+            const info = getInfo();
+            document.getElementById('img-period-total').innerText = `$${total.toLocaleString()}`;
+            document.getElementById('img-period-region').innerText = `地區: ${info.region}`;
+            document.getElementById('meta-author').innerText = `製作者: ${info.name}`;
+            document.getElementById('meta-date').innerText = `製作日期: ${info.date}`;
+            const canvas = await html2canvas(document.getElementById('export-period-image-card'), { scale: 2 });
+            download(canvas, "Period_Reward");
+        }
+
+        async function exportMilestoneImage() {
+            const wR = document.getElementById('img-wd-rows'), eR = document.getElementById('img-we-rows');
+            wR.innerHTML = ''; eR.innerHTML = '';
+            let wtS = 0, wmS = 0, etS = 0, emS = 0;
+            for(let i=1; i<=8; i++) {
+                const wt = Number(document.querySelector(`input[data-group="wd"][data-idx="${i}"][data-f="t"]`).value) || 0, wm = Number(document.querySelector(`input[data-group="wd"][data-idx="${i}"][data-f="m"]`).value) || 0;
+                wtS += wt; wmS += wm;
+                wR.innerHTML += `<tr><td class="py-3 text-gray-400 font-medium">${labelMap[i]}</td><td class="text-right text-black font-black">${wt}趟</td><td class="text-right text-[#06C167] font-black">$${wm}</td></tr>`;
+                const et = Number(document.querySelector(`input[data-group="we"][data-idx="${i}"][data-f="t"]`).value) || 0, em = Number(document.querySelector(`input[data-group="we"][data-idx="${i}"][data-f="m"]`).value) || 0;
+                etS += et; emS += em;
+                eR.innerHTML += `<tr><td class="py-3 text-gray-400 font-medium">${labelMap[i]}</td><td class="text-right text-black font-black">${et}趟</td><td class="text-right text-[#06C167] font-black">$${em}</td></tr>`;
+            }
+            const info = getInfo();
+            document.getElementById('img-wd-sum-t').innerText = `${wtS}趟`; document.getElementById('img-wd-sum-m').innerText = `$${wmS.toLocaleString()}`;
+            document.getElementById('img-we-sum-t').innerText = `${etS}趟`; document.getElementById('img-we-sum-m').innerText = `$${emS.toLocaleString()}`;
+            document.getElementById('img-ms-grand-t').innerText = `${wtS + etS} 趟`; document.getElementById('img-ms-grand-m').innerText = `$${(wmS + emS).toLocaleString()}`;
+            document.getElementById('img-ms-region').innerText = `地區: ${info.region}`;
+            document.getElementById('meta-ms-author').innerText = `製作者: ${info.name}`;
+            document.getElementById('meta-ms-date').innerText = `製作日期: ${info.date}`;
+            const canvas = await html2canvas(document.getElementById('export-ms-image-card'), { scale: 2 });
+            download(canvas, "Milestone_Reward");
+        }
+
+        function download(c, n) { const l = document.createElement('a'); l.download = `UberEats_${n}_${Date.now()}.png`; l.href = c.toDataURL("image/png"); l.click(); }
+        function closeModal() { document.getElementById('modal-export').classList.add('hidden'); }
+        function copyToClipboard() { const a = document.getElementById('output-area'); a.select(); document.execCommand('copy'); const b = document.getElementById('copy-btn'); b.innerText = "已複製！"; setTimeout(() => { b.innerText = "複製到剪貼簿"; closeModal(); }, 800); }
+        function clearAll() { if(confirm('確定要清空所有資料嗎？')) { 
+            document.querySelectorAll('input:not([type="date"]):not(#creator-name):not(#creator-region)').forEach(i => i.value = ''); 
+            document.querySelectorAll('.preset-checkbox').forEach(cb => cb.checked = false);
+            calculate(); window.scrollTo({top:0,behavior:'smooth'}); 
+        } }
+        function exportPeriodText() {
+            let out = ""; let total = 0, maxV = -1, best = -1;
+            fullDays.forEach((day, i) => {
+                const t0 = Number(document.querySelector(`input[data-day="${i}"][data-p="0"][data-f="t"]`).value) || 0, r0 = Number(document.querySelector(`input[data-day="${i}"][data-p="0"][data-f="r"]`).value) || 0, t1 = Number(document.querySelector(`input[data-day="${i}"][data-p="1"][data-f="t"]`).value) || 0, r1 = Number(document.querySelector(`input[data-day="${i}"][data-p="1"][data-f="r"]`).value) || 0;
+                const s = (t0 * r0) + (t1 * r1); total += s; if (s > maxV) { maxV = s; best = i; }
+                out += `${day} 合計${s}元\n午餐${t0}趟${r0}元 晚餐${t1}趟${r1}元\n`;
+            });
+            out += `\n本週餐期加碼共${total}元\n`;
+            if (maxV > 0) out += `週${uiDays[best].replace('週','')}是本週最高的餐期加碼\n共有${maxV}元，千萬別放過他了🤑`;
+            document.getElementById('output-area').value = out; document.getElementById('modal-export').classList.remove('hidden');
+        }
+        window.onload = init;
+    </script>
+</body>
+</html>
